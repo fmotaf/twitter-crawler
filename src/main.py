@@ -1,4 +1,5 @@
 import requests
+import json
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 import tweepy
@@ -51,9 +52,20 @@ def get_all_pilots(html):
     content = requests.get(html).text
     soup = BeautifulSoup(content, "html.parser")
     # all_pilots = soup.find_all("li")
-    list_of_pilots = soup.find("div", attrs={"class": "nav-list drivers"})
+    # list_of_pilots = soup.find("div", attrs={"class": "nav-list drivers"}).find("ul")
+    list_of_pilots = soup.find("div", attrs={"class": "container listing-items--wrapper driver during-season"}).find_all("a", attrs={"class":"listing-item--link"})
+    #.find("a", attrs={"class":"listing-item--link"})
+    
     for pilot in list_of_pilots:
-        print(pilot.find_next("span", attrs={"class": "lastname f1-bold--xxs f1-uppercase"}).get_text())
+        # first_name = pilot.find_next("span", attrs={"class": "firstname"}).get_text()
+        # last_name = pilot.find_next("span", attrs={"class": "lastname"}).get_text()
+        # print(f"{first_name} {last_name}")
+        pilot_obj = json.loads(pilot["data-tracking"])
+        print(pilot_obj)
+
+#.find_next("span")
+#, attrs={"class": "lastname f1-bold--xxs f1-uppercase"}
+
 ### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
 def get_pilot_img(html, pilot_name):
     
