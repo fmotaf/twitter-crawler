@@ -1,10 +1,40 @@
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Comment
+import tweepy
+from decouple import config
 
-URL_2 = "https://www.planetf1.com/"
+API_KEY = config("API_KEY")
+API_SECRET_KEY = config("API_SECRET_KEY")
+ACCESS_TOKEN = config("ACCESS_TOKEN")
+ACCESS_TOKEN_SECRET = config("ACCESS_TOKEN_SECRET")
+BEARER_TOKEN = config("BEARER_TOKEN")
+CLIENT_ID = config("CLIENT_ID")
+CLIENT_SECRET = config("CLIENT_SECRET")
+
+auth = tweepy.OAuthHandler(API_KEY, API_SECRET_KEY)
+auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+
+# api = tweepy.API(auth)
+api = tweepy.Client(
+    consumer_key=API_KEY,
+    consumer_secret=API_SECRET_KEY,
+    access_token=ACCESS_TOKEN,
+    access_token_secret=ACCESS_TOKEN_SECRET,
+    bearer_token=BEARER_TOKEN
+)
+
 URL_1 = "https://www.motorsport.com/"
+URL_2 = "https://www.planetf1.com/"
 
+URL_3 = "https://www.formula1.com/"
+URL_4 = "https://www.formula1points.com/"
+
+
+
+# STANDINGS = "https://www.motorsport.com/f1/standings/2023/"
+# STANDINGS = "https://www.formula1.com/en/results.html/2023/races.html"
+STANDINGS = "https://www.formula1points.com/season"
 def tag_visible(element):
     if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
         return False
@@ -13,17 +43,59 @@ def tag_visible(element):
     return True
 
 def text_from_html(html):
-    soup = BeautifulSoup(html, 'html.parser')
+    soup = BeautifulSoup(html, "html.parser")
     texts = soup.findAll(text=True)
     visible_texts = filter(tag_visible, texts)  
     return u" ".join(t.strip() for t in visible_texts)
 
+def get_standings(html):
+    soup = BeautifulSoup(html, "html.parser")
+    print(soup.find("table"))
+    # texts = soup.findAll(text=True)
+    # visible_texts = filter(tag_visible, texts)  
+    # return u" ".join(t.strip() for t in visible_texts)
+
+def get_better_standings(html):
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table")
+    # Extract the table data
+    rows = table.find_all("tr")
+    # Extract header and data
+    header = [th.text.strip() for th in rows[0].find_all("th")]
+    data = [[td.text.strip() for td in row.find_all("td")] for row in rows[1:]]
+    # Print the table
+    print(header)
+    for row in data:
+        print(row)
+    
+    return str(data)
+
+def post_standings(content: str):
+    api.create_tweet(text = content)
+    # .create_tweet(text=content)
+
+
+def get_next_race_date_time():
+    ...
+
 if __name__ == "__main__":
+    response_standings = requests.get(STANDINGS).text
+    championship_standings = get_better_standings(response_standings)
+    post_standings(championship_standings)
 
-    response1 = requests.get(URL_1).text
-    response2 = requests.get(URL_2).text
 
-    print(text_from_html(response1))
+    # print(text_from_html(response_standings))
+    # print(get_standings(response_standings))
+    
+    #user_info = api.get_user(username="food_porn17")
+    #print(user_info)
+
+# for tweet in public_tweets:
+#     print(tweet.text)
+#     response1 = requests.get(URL_1).text
+#     response2 = requests.get(URL_2).text
+
+#     print(text_from_html(response1))
     # text_from_html(response2)
 
 # bs1 = BeautifulSoup(response1.text)
