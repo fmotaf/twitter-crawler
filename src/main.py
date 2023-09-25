@@ -30,7 +30,62 @@ URL_2 = "https://www.planetf1.com/"
 URL_3 = "https://www.formula1.com/"
 URL_4 = "https://www.formula1points.com/"
 
+### FUNCOES AUXILIARES
+def tag_visible(element):
+    if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
+        return False
+    if isinstance(element, Comment):
+        return False
+    return True
 
+def text_from_html(html):
+    soup = BeautifulSoup(html, "html.parser")
+    texts = soup.findAll(text=True)
+    visible_texts = filter(tag_visible, texts)  
+    return u" ".join(t.strip() for t in visible_texts)
+DRIVERS_URL = "https://www.formula1.com/en/drivers"
+ALEXANDER_ALBON = "https://www.formula1.com/en/drivers/alexander-albon.html"
+IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
+
+def get_all_pilots(html):
+    content = requests.get(html).text
+    soup = BeautifulSoup(content, "html.parser")
+    # all_pilots = soup.find_all("li")
+    list_of_pilots = soup.find("div", attrs={"class": "nav-list drivers"})
+    for pilot in list_of_pilots:
+        print(pilot.find_next("span", attrs={"class": "lastname f1-bold--xxs f1-uppercase"}).get_text())
+### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
+def get_pilot_img(html, pilot_name):
+    
+    soup = BeautifulSoup(html, "html.parser")
+    images = soup.find_all("img", attrs={"class":IMG_CLASS})
+    
+    for image in images:
+        if "/drivers/" in image.get("src"):
+            print(image)
+        #     img_url = image.get("src")
+        #     img_response = requests.get(img_url)
+        #     if img_response.status_code == 200:
+        #         with open("alex-albon.jpg","wb") as file:
+        #             file.write(img_response.content)
+        #             print(f"imagem salva!")
+        #     else:
+        #         print(f"Falha no download da imagem, Código de status = {img_response.status_code}")
+        # else:
+        #     print("Nenhuma imagem do piloto foi encontrada!")
+      
+    # if profile_pic:
+    #     img_url = profile_pic["src"]
+
+if __name__ == "__main__":
+    # PILOT_NAME="alex-albon.html"
+    # alex_albon_content = requests.get(DRIVERS_URL+PILOT_NAME).content
+    # # print(alex_albon)
+    # get_pilot_img(alex_albon_content,PILOT_NAME)
+
+    get_all_pilots(DRIVERS_URL+".html")
+
+"""
 
 # STANDINGS = "https://www.motorsport.com/f1/standings/2023/"
 # STANDINGS = "https://www.formula1.com/en/results.html/2023/races.html"
@@ -79,9 +134,15 @@ def get_next_race_date_time():
     ...
 
 if __name__ == "__main__":
-    response_standings = requests.get(STANDINGS).text
-    championship_standings = get_better_standings(response_standings)
-    post_standings(championship_standings)
+    formula1_points = requests.get(URL_4).text
+    get_standings(formula1_points)
+"""
+
+
+    # print(text_from_html(formula1_points))
+    # response_standings = requests.get(STANDINGS).text
+    # championship_standings = get_better_standings(response_standings)
+    # post_standings(championship_standings)
 
 
     # print(text_from_html(response_standings))
