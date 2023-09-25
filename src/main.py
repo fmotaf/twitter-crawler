@@ -57,11 +57,14 @@ def get_all_pilots(html):
     #.find("a", attrs={"class":"listing-item--link"})
     
     for pilot in list_of_pilots:
+        # print(pilot)
         # first_name = pilot.find_next("span", attrs={"class": "firstname"}).get_text()
         # last_name = pilot.find_next("span", attrs={"class": "lastname"}).get_text()
         # print(f"{first_name} {last_name}")
         pilot_obj = json.loads(pilot["data-tracking"])
-        print(pilot_obj)
+        pilot_name = pilot_obj.get("path")
+        pilot_codename = str(pilot["href"]).split("/drivers/")[1].split(".html")[0]
+        print(pilot_codename)
 
 #.find_next("span")
 #, attrs={"class": "lastname f1-bold--xxs f1-uppercase"}
