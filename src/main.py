@@ -56,29 +56,15 @@ IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 def get_all_pilots(html):
     content = requests.get(html).text
     soup = BeautifulSoup(content, "html.parser")
-    # all_pilots = soup.find_all("li")
-    # list_of_pilots = soup.find("div", attrs={"class": "nav-list drivers"}).find("ul")
     list_of_pilots = soup.find("div", attrs={"class": "container listing-items--wrapper driver during-season"}).find_all("a", attrs={"class":"listing-item--link"})
-    #.find("a", attrs={"class":"listing-item--link"})
     
     all_pilots = []
     for pilot in list_of_pilots:
-        # print(pilot)
-        # first_name = pilot.find_next("span", attrs={"class": "firstname"}).get_text()
-        # last_name = pilot.find_next("span", attrs={"class": "lastname"}).get_text()
-        # print(f"{first_name} {last_name}")
         pilot_obj = json.loads(pilot["data-tracking"])
         pilot_name = pilot_obj.get("path")
-        print(pilot_name)
         pilot_codename = str(pilot["href"]).split("/drivers/")[1].split(".html")[0]
-        # print(pilot_codename)
         all_pilots.append((pilot_name, pilot_codename))
-
-    
-    return dict(all_pilots)
-
-#.find_next("span")
-#, attrs={"class": "lastname f1-bold--xxs f1-uppercase"}
+    return all_pilots
 
 ### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
 def get_pilot_img(html, pilot_name):
@@ -89,30 +75,27 @@ def get_pilot_img(html, pilot_name):
     for image in images:
         if "/drivers/" in image.get("src"):
             print(image)
-        #     img_url = image.get("src")
-        #     img_response = requests.get(img_url)
-        #     if img_response.status_code == 200:
-        #         with open("alex-albon.jpg","wb") as file:
-        #             file.write(img_response.content)
-        #             print(f"imagem salva!")
-        #     else:
-        #         print(f"Falha no download da imagem, Código de status = {img_response.status_code}")
-        # else:
-        #     print("Nenhuma imagem do piloto foi encontrada!")
-      
+            img_url = image.get("src")
+            img_response = requests.get(img_url)
+            if img_response.status_code == 200:
+                with open("./media/img/"+pilot_name+".jpg","wb") as file:
+                    file.write(img_response.content)
+                    print(f"imagem salva!")
+            else:
+                print(f"Falha no download da imagem, Código de status = {img_response.status_code}")
+        else:
+            print("Nenhuma imagem do piloto foi encontrada!")
+
     # if profile_pic:
     #     img_url = profile_pic["src"]
 
 if __name__ == "__main__":
-    # PILOT_NAME="alex-albon.html"
-    # alex_albon_content = requests.get(DRIVERS_URL+PILOT_NAME).content
-    # # print(alex_albon)
-    # get_pilot_img(alex_albon_content,PILOT_NAME)
 
     pilots = get_all_pilots(DRIVERS_URL+".html")
-    print(pilots['Sergio Perez'])
-    # pilots_dict = generate_dict(pilots)
-    print(pilots)
+    for pilot in pilots:
+        print(DRIVERS_URL+"/"+str(pilot[1])+".html")
+        get_pilot_img(requests.get(DRIVERS_URL+"/"+str(pilot[1])+".html").content, pilot[1])
+
 """
 
 # STANDINGS = "https://www.motorsport.com/f1/standings/2023/"
