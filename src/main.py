@@ -39,11 +39,16 @@ def tag_visible(element):
         return False
     return True
 
+def generate_dict(pilots:list):
+    pilot_dict = dict(pilots)
+    return dict((k,v) for k,v in pilot_dict.items())
+
 def text_from_html(html):
     soup = BeautifulSoup(html, "html.parser")
     texts = soup.findAll(text=True)
     visible_texts = filter(tag_visible, texts)  
     return u" ".join(t.strip() for t in visible_texts)
+
 DRIVERS_URL = "https://www.formula1.com/en/drivers"
 ALEXANDER_ALBON = "https://www.formula1.com/en/drivers/alexander-albon.html"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
@@ -56,6 +61,7 @@ def get_all_pilots(html):
     list_of_pilots = soup.find("div", attrs={"class": "container listing-items--wrapper driver during-season"}).find_all("a", attrs={"class":"listing-item--link"})
     #.find("a", attrs={"class":"listing-item--link"})
     
+    all_pilots = []
     for pilot in list_of_pilots:
         # print(pilot)
         # first_name = pilot.find_next("span", attrs={"class": "firstname"}).get_text()
@@ -63,8 +69,13 @@ def get_all_pilots(html):
         # print(f"{first_name} {last_name}")
         pilot_obj = json.loads(pilot["data-tracking"])
         pilot_name = pilot_obj.get("path")
+        print(pilot_name)
         pilot_codename = str(pilot["href"]).split("/drivers/")[1].split(".html")[0]
-        print(pilot_codename)
+        # print(pilot_codename)
+        all_pilots.append((pilot_name, pilot_codename))
+
+    
+    return dict(all_pilots)
 
 #.find_next("span")
 #, attrs={"class": "lastname f1-bold--xxs f1-uppercase"}
@@ -98,8 +109,10 @@ if __name__ == "__main__":
     # # print(alex_albon)
     # get_pilot_img(alex_albon_content,PILOT_NAME)
 
-    get_all_pilots(DRIVERS_URL+".html")
-
+    pilots = get_all_pilots(DRIVERS_URL+".html")
+    print(pilots['Sergio Perez'])
+    # pilots_dict = generate_dict(pilots)
+    print(pilots)
 """
 
 # STANDINGS = "https://www.motorsport.com/f1/standings/2023/"
