@@ -52,7 +52,7 @@ def text_from_html(html):
 DRIVERS_URL = "https://www.formula1.com/en/drivers"
 ALEXANDER_ALBON = "https://www.formula1.com/en/drivers/alexander-albon.html"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
-
+DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
 def get_all_pilots(html):
     content = requests.get(html).text
     soup = BeautifulSoup(content, "html.parser")
@@ -63,7 +63,10 @@ def get_all_pilots(html):
         pilot_obj = json.loads(pilot["data-tracking"])
         pilot_name = pilot_obj.get("path")
         pilot_codename = str(pilot["href"]).split("/drivers/")[1].split(".html")[0]
-        all_pilots.append((pilot_name, pilot_codename))
+        pilot_callsign = str(pilot_name.split(' ')[0][:3]).upper() + str(pilot_name.split(' ')[1][:3]).upper() + str('01')
+        # print("pilot_callsign")
+        # print(pilot_callsign)
+        all_pilots.append((pilot_name, pilot_codename, pilot_callsign))
     return all_pilots
 
 ### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
@@ -86,15 +89,56 @@ def get_pilot_img(html, pilot_name):
         else:
             print("Nenhuma imagem do piloto foi encontrada!")
 
-    # if profile_pic:
-    #     img_url = profile_pic["src"]
+def get_pilot_results(html, pilot_name):
+
+    soup = BeautifulSoup(html, "html.parser")
+    table_title = soup.find("h1", attrs={"class": "ResultsArchiveTitle"})
+    table_of_results = soup.find("table", attrs={"class": "resultsarchive-table"})
+    table_head = table_of_results.find_next()
+    table_body = table_head.find_next()
+    table_rows = table_head.find_next()
+    # for row in table_rows:
+    #     print(row)
+    print('table title')
+    print(table_title.get_text().strip().rstrip().replace("\n",""))
+    print('table body')
+    print(table_body.get_text())
+    print('table rows')
+    race_obj = {}
+    for row in table_rows:
+        row_content = row.find_next()
+        # print(row_content)
+        for line in row_content:
+            # if line != '\n':
+            # race_obj["Grand Prix"] = 
+            # race_obj["Date"] =
+            # race_obj["Car"] =
+            # race_obj["Race Position"] = 
+            # race_obj["Pts"] =
+            print(f"line = {line.get_text().split()}")
+        # row_content = set(map(str, row_content.split()))
+        # print(row_content)
+    
+    # print(table_body)
+    # for row in table_body:
+    #     print(row)
+    # for row in table_of_results:
+    #     print("NOVA LINHA")
+    #     print(row.get_text().replace('\n',''))
+    # print(table_of_results.get_text())
 
 if __name__ == "__main__":
 
     pilots = get_all_pilots(DRIVERS_URL+".html")
-    for pilot in pilots:
-        print(DRIVERS_URL+"/"+str(pilot[1])+".html")
-        get_pilot_img(requests.get(DRIVERS_URL+"/"+str(pilot[1])+".html").content, pilot[1])
+    max_v = pilots[0][1]
+    max_v_callsign = pilots[0][2]
+    # print(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html")
+    # print("RESULTADOS DO PILOTO MAX VERSTAPPEN")
+    get_pilot_results(requests.get(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html").content, max_v)
+    
+    # for pilot in pilots:
+    #     print(DRIVERS_URL+"/"+str(pilot[1])+".html")
+    #     get_pilot_img(requests.get(DRIVERS_URL+"/"+str(pilot[1])+".html").content, pilot[1])
 
 """
 
