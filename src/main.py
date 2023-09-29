@@ -97,6 +97,7 @@ def get_pilot_results(html, pilot_name):
     table_head = table_of_results.find_next()
     table_body = table_head.find_next()
     table_rows = table_head.find_next()
+    table_data = table_rows.find_next().find_next()
     # for row in table_rows:
     #     print(row)
     print('table title')
@@ -104,18 +105,32 @@ def get_pilot_results(html, pilot_name):
     print('table body')
     print(table_body.get_text())
     print('table rows')
-    race_obj = {}
+    print(table_rows.get_text())
+    print('table_data')
+    print(table_data)
+    # race_obj = {}
+
+    """
     for row in table_rows:
+        # print(row.get_text())
         row_content = row.find_next()
+        print(f"row_content = {row_content.get_text()}")
         # print(row_content)
         for line in row_content:
             # if line != '\n':
-            # race_obj["Grand Prix"] = 
-            # race_obj["Date"] =
-            # race_obj["Car"] =
-            # race_obj["Race Position"] = 
-            # race_obj["Pts"] =
-            print(f"line = {line.get_text().split()}")
+            if line != "\n":
+                countries = line.get_text().split('\n')
+                country = [country for country in countries if country != '']
+                print("line = "+str(country))
+                # race_obj["Grand Prix"] = country[0]
+                # race_obj["Date"] = country[1]
+                # race_obj["Car"] =
+                # race_obj["Race Position"] = 
+                # race_obj["Pts"] =
+    """
+
+
+                # print("country = "+line.get_text().split('\n'))
         # row_content = set(map(str, row_content.split()))
         # print(row_content)
     
