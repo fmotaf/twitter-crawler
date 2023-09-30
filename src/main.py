@@ -92,55 +92,10 @@ def get_pilot_img(html, pilot_name):
 def get_pilot_results(html, pilot_name):
 
     soup = BeautifulSoup(html, "html.parser")
-    table_title = soup.find("h1", attrs={"class": "ResultsArchiveTitle"})
-    table_of_results = soup.find("table", attrs={"class": "resultsarchive-table"})
-    table_head = table_of_results.find_next()
-    table_body = table_head.find_next()
-    table_rows = table_head.find_next()
-    table_data = table_rows.find_next().find_next()
-    # for row in table_rows:
-    #     print(row)
-    print('table title')
-    print(table_title.get_text().strip().rstrip().replace("\n",""))
-    print('table body')
-    print(table_body.get_text())
-    print('table rows')
-    print(table_rows.get_text())
-    print('table_data')
-    print(table_data)
-    # race_obj = {}
+    table = soup.find("table", class_="resultsarchive-table")
 
-    """
-    for row in table_rows:
-        # print(row.get_text())
-        row_content = row.find_next()
-        print(f"row_content = {row_content.get_text()}")
-        # print(row_content)
-        for line in row_content:
-            # if line != '\n':
-            if line != "\n":
-                countries = line.get_text().split('\n')
-                country = [country for country in countries if country != '']
-                print("line = "+str(country))
-                # race_obj["Grand Prix"] = country[0]
-                # race_obj["Date"] = country[1]
-                # race_obj["Car"] =
-                # race_obj["Race Position"] = 
-                # race_obj["Pts"] =
-    """
-
-
-                # print("country = "+line.get_text().split('\n'))
-        # row_content = set(map(str, row_content.split()))
-        # print(row_content)
-    
-    # print(table_body)
-    # for row in table_body:
-    #     print(row)
-    # for row in table_of_results:
-    #     print("NOVA LINHA")
-    #     print(row.get_text().replace('\n',''))
-    # print(table_of_results.get_text())
+    for row in table.find_all("tr"):
+        print(row.get_text().strip().split())
 
 if __name__ == "__main__":
 
