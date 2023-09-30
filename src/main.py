@@ -1,5 +1,6 @@
 import requests
 import json
+import pandas as pd
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 import tweepy
@@ -53,6 +54,8 @@ DRIVERS_URL = "https://www.formula1.com/en/drivers"
 ALEXANDER_ALBON = "https://www.formula1.com/en/drivers/alexander-albon.html"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
+
+### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
 def get_all_pilots(html):
     content = requests.get(html).text
     soup = BeautifulSoup(content, "html.parser")
@@ -69,9 +72,7 @@ def get_all_pilots(html):
         all_pilots.append((pilot_name, pilot_codename, pilot_callsign))
     return all_pilots
 
-### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
 def get_pilot_img(html, pilot_name):
-    
     soup = BeautifulSoup(html, "html.parser")
     images = soup.find_all("img", attrs={"class":IMG_CLASS})
     
@@ -90,12 +91,50 @@ def get_pilot_img(html, pilot_name):
             print("Nenhuma imagem do piloto foi encontrada!")
 
 def get_pilot_results(html, pilot_name):
-
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table", class_="resultsarchive-table")
 
-    for row in table.find_all("tr"):
+    first_row = table.findChild("thead")
+    print(first_row.get_text().strip().split('\n'))
+
+    for row in table.find_all("tr")[1:]:
         print(row.get_text().strip().split())
+
+
+    # all_rows = table.children
+    # for row in all_rows:
+    #     print(row)
+    
+    # for row in table.children:
+    #     print(row.text.strip)
+
+    # print(f"first row = {first_row}")
+    # for row in table:
+    #     print(row.text.strip())
+        
+
+
+    """
+    # with open("teste.xlsx", mode="w", newline="") as csv_file:
+    columns = [column for column in table.find_all("tr")]
+    index = table.find_all("tr")[1].get_text().split()
+    count = 0
+    print(f"index = {index}")
+    mydata = []
+    for row in table.find_all("tr"):
+        print(row.get_text())
+        mydata.append(str(row.get_text()))
+        # data.update({count: row.get_text().split()})
+        print(row.get_text().split())
+        for _ in range(len(row.get_text().split())):
+            print(_)
+            data = {f"Column {count}": str(row.get_text().split()[_])}
+            print(data)
+            df = pd.DataFrame(data, columns = [f'{columns}'], index = index)
+            df.to_excel("teste.xlsx")
+            count += 1
+        # print(row.get_tet().split())
+    """
 
 if __name__ == "__main__":
 
