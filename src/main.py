@@ -97,8 +97,40 @@ def get_pilot_results(html, pilot_name):
     first_row = table.findChild("thead")
     print(first_row.get_text().strip().split('\n'))
 
+    excel_labels = first_row.get_text().strip().split('\n')
+    
+    excel_data = []
     for row in table.find_all("tr")[1:]:
-        print(row.get_text().strip().split())
+        line = list(row.get_text().strip().split('\n'))
+        print(line)
+        for _ in line:
+            if _ == "":
+                print(60*"_")
+                line.remove(_)
+        print(line)
+        excel_data.append(line)
+
+    print(f"excel data ={excel_data}")
+    return (excel_labels, excel_data)
+
+def generate_excel(labels, rows):
+    print(f"labels = {labels}, rows = {rows}")
+    df = pd.DataFrame(rows, columns = labels)
+    df.to_excel('um.xlsx')
+
+
+if __name__ == "__main__":
+
+    pilots = get_all_pilots(DRIVERS_URL+".html")
+    max_v = pilots[0][1]
+    max_v_callsign = pilots[0][2]
+    # print(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html")
+    # print("RESULTADOS DO PILOTO MAX VERSTAPPEN")
+    labels, data = get_pilot_results(requests.get(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html").content, max_v)
+    generate_excel(labels, data)
+    # for pilot in pilots:
+    #     print(DRIVERS_URL+"/"+str(pilot[1])+".html")
+    #     get_pilot_img(requests.get(DRIVERS_URL+"/"+str(pilot[1])+".html").content, pilot[1])
 
 
     # all_rows = table.children
@@ -135,19 +167,6 @@ def get_pilot_results(html, pilot_name):
             count += 1
         # print(row.get_tet().split())
     """
-
-if __name__ == "__main__":
-
-    pilots = get_all_pilots(DRIVERS_URL+".html")
-    max_v = pilots[0][1]
-    max_v_callsign = pilots[0][2]
-    # print(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html")
-    # print("RESULTADOS DO PILOTO MAX VERSTAPPEN")
-    get_pilot_results(requests.get(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html").content, max_v)
-    
-    # for pilot in pilots:
-    #     print(DRIVERS_URL+"/"+str(pilot[1])+".html")
-    #     get_pilot_img(requests.get(DRIVERS_URL+"/"+str(pilot[1])+".html").content, pilot[1])
 
 """
 
