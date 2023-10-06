@@ -22,8 +22,7 @@
 
 ```
     cd twitter-crawler
-    python -m venv venv
-    
+    python -m venv venv 
     <venv>\Scripts\activate.bat (Windows)
     source venv/bin/activate (Linux/OSX)
     pip install -r requirements.txt
