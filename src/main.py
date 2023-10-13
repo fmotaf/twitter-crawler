@@ -5,6 +5,12 @@ from bs4 import BeautifulSoup
 from bs4.element import Comment
 import tweepy
 from decouple import config
+from pymongo import MongoClient
+from pymongo import database
+
+
+uri:str = config("MONGO_URI")
+client:MongoClient = MongoClient(uri)
 
 # ESSA PARTE SERA USADA APENAS PARA INTERAÇÃO COM TWITTER PORTANTO SERÁ DEIXADA DE LADO POR ENQUANTO
 """
@@ -40,6 +46,33 @@ def tag_visible(element):
         return False
     return True
 
+# CONECTA AO BANCO DE DADOS
+def connect_db() -> database.Database:
+    try:
+        client.admin.command("ping")
+        print("Succesfully deployed your MongoDB Cluster")
+        db = client['formula1_db']
+    except Exception as e:
+        print(e)
+    return db
+
+def insert_pilot(db:database.Database, pilot_data) -> None:
+    pilots_collection = db.pilots
+    pilot = {
+        "Name": pilot_data[0],
+        "URI1": pilot_data[1],
+        "URI2": pilot_data[2]
+    }
+    pilot_id = pilots_collection.insert_one(pilot).inserted_id
+    print(pilot_id)
+
+
+# CRIA UM BANCO DE DADOS
+def get_db(client:MongoClient) -> database.Database:
+    return client.get_default_database()
+
+
+
 # GERA UM DICIONÁRIO DE PILOTOS
 def generate_dict(pilots:list):
     pilot_dict = dict(pilots)
@@ -57,13 +90,18 @@ ALEXANDER_ALBON = "https://www.formula1.com/en/drivers/alexander-albon.html"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
 
+# Retorna Um elemento BeautifulSoup, função auxiliar parr
+def return_soup(html) -> BeautifulSoup:
+    content = requests.get(html).text
+    soup = BeautifulSoup(content, "html.parser")
+    return soup
+
 ### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
 
 # ESSA FUNÇÃO RETORNA LISTA CONTENDO NOME DOS PILOTOS, CODENOME USADO NA URL
 # E APELIDO TAMBÉM PARA SER COM OUTRO FORMATO DE URL
 def get_all_pilots(html):
-    content = requests.get(html).text
-    soup = BeautifulSoup(content, "html.parser")
+    soup = return_soup(html)
     list_of_pilots = soup.find("div", attrs={"class": "container listing-items--wrapper driver during-season"}).find_all("a", attrs={"class":"listing-item--link"})
     
     all_pilots = []
@@ -80,7 +118,7 @@ def get_all_pilots(html):
 
 # BAIXA IMAGEM DO PILOTO DE ACORDO COM SEU NOME
 def get_pilot_img(html, pilot_name):
-    soup = BeautifulSoup(html, "html.parser")
+    soup = return_soup(html)
     images = soup.find_all("img", attrs={"class":IMG_CLASS})
     
     for image in images:
@@ -98,8 +136,8 @@ def get_pilot_img(html, pilot_name):
             print("Nenhuma imagem do piloto foi encontrada!")
 
 # PEGA OS RESULTADOS DO PILOTO NA TEMPORADA 2023
-def get_pilot_results(html, pilot_name):
-    soup = BeautifulSoup(html, "html.parser")
+def get_pilot_results(html):
+    soup = return_soup(html)
     table = soup.find("table", class_="resultsarchive-table")
 
     first_row = table.findChild("thead")
@@ -110,49 +148,40 @@ def get_pilot_results(html, pilot_name):
     excel_data = []
     for row in table.find_all("tr")[1:]:
         line = list(row.get_text().strip().split('\n'))
-        print(line)
+        # print(line)
         for _ in line:
             if _ == "":
-                print(60*"_")
                 line.remove(_)
-        print(line)
+        # print(line)
         excel_data.append(line)
 
     print(f"excel data ={excel_data}")
     return (excel_labels, excel_data)
 
-
 # GERA UM EXCEL, A IDEIA É QUE SEJA GERADO UM EXCEL E SEJA POSTADO EM UM TWEET QUANDO O BOT FOR MENCIONADO
 # EXEMPLO @RacingBot RESULTADO <PILOTO>, O NOME DO PILOTO ESTÁ HARDCODED MAS SERÁ ADICIONADO PARAM. A FUNÇÃO
-def generate_excel(labels, rows):
+def generate_excel(labels, rows, pilot_name='all_pilots'):
     print(f"labels = {labels}, rows = {rows}")
     df = pd.DataFrame(rows, columns = labels)
-    df.to_excel('verstappen.xlsx')
+    df.to_excel(f"{pilot_name}.xlsx")
+
+# GERA UM GRAFICO PARA PODER SER POSTADO NO TWITTER CONTENDO OS RESULTADOS DO PILOTO
+def generate_graph():
+    ...
+
+def main():
+    list_of_pilots = get_all_pilots(DRIVERS_URL+".html")
+
+    for pilot in list_of_pilots:
+        # print(pilot)
+        # print(DRIVERS_STANDING_2023+str(pilot[2])+".html")
+        # pilot_result = get_pilot_results(DRIVERS_STANDING_2023+"/"+str(pilot[2])+".html")
+        # print(pilot_result)
+        db = connect_db()
+        insert_pilot(db, pilot)
+
+
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":
-
-    pilots = get_all_pilots(DRIVERS_URL+".html")
-    max_v = pilots[0][1]
-    max_v_callsign = pilots[0][2]
-    # print(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html")
-    # print("RESULTADOS DO PILOTO MAX VERSTAPPEN")
-    labels, data = get_pilot_results(requests.get(DRIVERS_STANDING_2023+"/"+str(max_v_callsign)+"/"+str(max_v)+".html").content, max_v)
-    generate_excel(labels, data)
-    
-    # for pilot in pilots:
-    #     print(DRIVERS_URL+"/"+str(pilot[1])+".html")
-    #     get_pilot_img(requests.get(DRIVERS_URL+"/"+str(pilot[1])+".html").content, pilot[1])
-
-
-    # all_rows = table.children
-    # for row in all_rows:
-    #     print(row)
-    
-    # for row in table.children:
-    #     print(row.text.strip)
-
-    # print(f"first row = {first_row}")
-    # for row in table:
-    #     print(row.text.strip())
-        
+    main()
