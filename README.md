@@ -28,4 +28,10 @@
     pip install -r requirements.txt
 ```
 #### Finalmente para executar o crawler basta digitar:
-` python main.py `
+` python src/main.py `
+ou 
+```
+cd src
+python main.py
+```
+
