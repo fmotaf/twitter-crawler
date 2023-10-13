@@ -66,12 +66,10 @@ def insert_pilot(db:database.Database, pilot_data) -> None:
     pilot_id = pilots_collection.insert_one(pilot).inserted_id
     print(pilot_id)
 
-
-# CRIA UM BANCO DE DADOS
-def get_db(client:MongoClient) -> database.Database:
-    return client.get_default_database()
-
-
+def search_pilot(db:database.Database, pilot_name) -> None:
+    pilots_collection = db.pilots
+    query = pilots_collection.find_one({"Name": str(pilot_name)})
+    print(query)
 
 # GERA UM DICIONÁRIO DE PILOTOS
 def generate_dict(pilots:list):
@@ -172,13 +170,19 @@ def generate_graph():
 def main():
     list_of_pilots = get_all_pilots(DRIVERS_URL+".html")
 
-    for pilot in list_of_pilots:
+    # for pilot in list_of_pilots:
         # print(pilot)
         # print(DRIVERS_STANDING_2023+str(pilot[2])+".html")
         # pilot_result = get_pilot_results(DRIVERS_STANDING_2023+"/"+str(pilot[2])+".html")
         # print(pilot_result)
-        db = connect_db()
-        insert_pilot(db, pilot)
+        
+    # INSERE DADOS DO PILOTO NO BANCO
+    db = connect_db()
+        
+        # insert_pilot(db, pilot)
+
+    # PROCURA POR PILOTO/ EXEMPLO MAX VERSTAPPEN
+    search_pilot(db, "Max Verstappen")
 
 
 
