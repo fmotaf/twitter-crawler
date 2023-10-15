@@ -1,16 +1,12 @@
 import requests
 import json
-import pandas as pd
-from bs4 import BeautifulSoup
-from bs4.element import Comment
 import tweepy
 from decouple import config
-from pymongo import MongoClient
-from pymongo import database
+import datetime
+import dbase
+from dbase import Database
+import utils
 
-
-uri:str = config("MONGO_URI")
-client:MongoClient = MongoClient(uri)
 
 # ESSA PARTE SERA USADA APENAS PARA INTERAÇÃO COM TWITTER PORTANTO SERÁ DEIXADA DE LADO POR ENQUANTO
 """
@@ -36,33 +32,20 @@ api = tweepy.Client(
 """
 
 URL_3 = "https://www.formula1.com/"
-URL_4 = "https://www.formula1points.com/"
-
+URL_TO_WATCH = "https://www.band.uol.com.br/esportes/automobilismo/formula-1/ao-vivo"
+TEAMS_URL = "https://www.formula1.com/en/teams.html"
 DRIVERS_URL = "https://www.formula1.com/en/drivers"
-ALEXANDER_ALBON = "https://www.formula1.com/en/drivers/alexander-albon.html"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
 
+db = Database.connect_db()
 
-### FUNCOES AUXILIARES
-def tag_visible(element):
-    if element.parent.name in ['style', 'script', 'head', 'title', 'meta', '[document]']:
-        return False
-    if isinstance(element, Comment):
-        return False
-    return True
-
-# CONECTA AO BANCO DE DADOS
-def connect_db() -> database.Database:
-    try:
-        client.admin.command("ping")
-        print("Succesfully deployed your MongoDB Cluster")
-        db = client['formula1_db']
-    except Exception as e:
-        print(e)
-    return db
-
-def insert_pilot(db:database.Database, pilot_data) -> None:
+def insert_pilot(db:dbase.Database, pilot_data) -> None:
+    """
+        Parametros:
+        db: Database conectada ao cluster MongoDb
+        data:
+    """
     pilots_collection = db.pilots
     pilot = {
         "Name": pilot_data[0],
@@ -71,47 +54,35 @@ def insert_pilot(db:database.Database, pilot_data) -> None:
     }
     pilot_id = pilots_collection.insert_one(pilot).inserted_id
     print(pilot_id)
+    db.insert_element(pilots_collection, pilot)
 
-"""
-def insert_team(db:database.Database, team_data) -> None:
+
+def insert_team(db:dbase.Database, team_data) -> None:
     teams_collection = db.teams
     team = {
-        "Name":,
-        "Pilot1":,
-        "Pilot2":,
+        "Name": team_data[0],
+        "Pilot1": team_data[1],
+        "Pilot2": team_data[2],
+        "Points": team_data[3]
     }
-    team_id = teams_collection.insert_one(team).inserted_id
-"""
+    db.insert_element(teams_collection, team)
 
-def search_pilot(db:database.Database, pilot_name) -> None:
+def search_pilot(db:dbase.Database, pilot_name) -> None:
     pilots_collection = db.pilots
     query = pilots_collection.find_one({"Name": str(pilot_name)})
     print(query)
 
-# GERA UM DICIONÁRIO DE PILOTOS
-def generate_dict(pilots:list):
-    pilot_dict = dict(pilots)
-    return dict((k,v) for k,v in pilot_dict.items())
-
-# EXTRAI TEXTO DE HTML, NÃO SERÁ USADA POR ENQUANTO
-def text_from_html(html):
-    soup = BeautifulSoup(html, "html.parser")
-    texts = soup.findAll(text=True)
-    visible_texts = filter(tag_visible, texts)  
-    return u" ".join(t.strip() for t in visible_texts)
-
-# Retorna Um elemento BeautifulSoup, função auxiliar parr
-def return_soup(html) -> BeautifulSoup:
-    content = requests.get(html).text
-    soup = BeautifulSoup(content, "html.parser")
-    return soup
-
 ### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
+def crawl_all_pilots(html) -> list:
+    """
+        Parametros:
+            html: URL que possui os dados a serem raspados
+        
+        Retorna: 
+            Lista contendo os pilotos
+    """
 
-# ESSA FUNÇÃO RETORNA LISTA CONTENDO NOME DOS PILOTOS, CODENOME USADO NA URL
-# E APELIDO TAMBÉM PARA SER COM OUTRO FORMATO DE URL
-def get_all_pilots(html):
-    soup = return_soup(html)
+    soup = utils.return_soup(html)
     list_of_pilots = soup.find("div", attrs={"class": "container listing-items--wrapper driver during-season"}).find_all("a", attrs={"class":"listing-item--link"})
     
     all_pilots = []
@@ -120,42 +91,56 @@ def get_all_pilots(html):
         pilot_name = pilot_obj.get("path")
         pilot_codename = str(pilot["href"]).split("/drivers/")[1].split(".html")[0]
         pilot_callsign = str(pilot_name.split(' ')[0][:3]).upper() + str(pilot_name.split(' ')[1][:3]).upper() + str('01')
-        # print("pilot_callsign")
-        # print(pilot_callsign)
         all_pilots.append((pilot_name, pilot_codename, pilot_callsign))
+    
     return all_pilots
 
-TEAMS_URL = "https://www.formula1.com/en/teams.html"
-def get_all_teams(html) -> None:
-    soup = return_soup(html)
+def crawl_all_teams(html:str) -> list:
+    """
+        Parametros:
+            html: URL que possui os dados a serem raspados
+        
+        Retorna: 
+            Lista contendo as equipes
+    """
+
+    soup = utils.return_soup(html)
     list_of_teams = soup.find("div", attrs={"class": "container listing team-listing"}).find_all("a", attrs={"class":"listing-link"})
     
     all_teams = []
     for team in list_of_teams:
         team_obj = json.loads(team["data-tracking"])
         team_name = team_obj.get("path")
-        # print(team_obj)
         driver1 = team.find("div", attrs={"class": "driver"})
         driver1_name = driver1.get_text().strip().rstrip().replace('\n',' ')
         driver2 = driver1.findNext("div", attrs={"class": "driver"})
         driver2_name = driver2.get_text().strip().rstrip().replace('\n',' ')
-
+        points = team.find("div", attrs={"class": "f1-wide--s"}).get_text().strip().rstrip().replace('\n',' ')
         team = {
             "Name": team_name,
             "Driver1": driver2_name,
-            "Driver2": driver1_name
+            "Driver2": driver1_name,
+            "Points": points
         }
         all_teams.append(team)
-    
-    for team in all_teams:
-        print(team)
+        print(all_teams)
 
+    return all_teams
         # all_teams.append(team)
         # print(team_name)
 
 # BAIXA IMAGEM DO PILOTO DE ACORDO COM SEU NOME
-def get_pilot_img(html, pilot_name):
-    soup = return_soup(html)
+def crawl_pilot_img(html, pilot_name):
+    """
+        Baixa as imagens dos pilotos para exibicao quando alguem perguntar dados
+        Parametros:
+            html: URL que possui os dados a serem raspados
+        
+        Retorna: 
+            Lista contendo as equipes
+    """
+
+    soup = utils.return_soup(html)
     images = soup.find_all("img", attrs={"class":IMG_CLASS})
     
     for image in images:
@@ -173,8 +158,8 @@ def get_pilot_img(html, pilot_name):
             print("Nenhuma imagem do piloto foi encontrada!")
 
 # PEGA OS RESULTADOS DO PILOTO NA TEMPORADA 2023
-def get_pilot_results(html):
-    soup = return_soup(html)
+def crawl_pilot_results(html):
+    soup = utils.return_soup(html)
     table = soup.find("table", class_="resultsarchive-table")
 
     first_row = table.findChild("thead")
@@ -195,15 +180,25 @@ def get_pilot_results(html):
     print(f"excel data ={excel_data}")
     return (excel_labels, excel_data)
 
-# GERA UM EXCEL, A IDEIA É QUE SEJA GERADO UM EXCEL E SEJA POSTADO EM UM TWEET QUANDO O BOT FOR MENCIONADO
-# EXEMPLO @RacingBot RESULTADO <PILOTO>, O NOME DO PILOTO ESTÁ HARDCODED MAS SERÁ ADICIONADO PARAM. A FUNÇÃO
-def generate_excel(labels, rows, pilot_name='all_pilots'):
-    print(f"labels = {labels}, rows = {rows}")
-    df = pd.DataFrame(rows, columns = labels)
-    df.to_excel(f"{pilot_name}.xlsx")
+# PEGA AS DATAS DE TODOS AS PROXIMAS PROVAS
+def crawl_next_races(html):
+    soup = utils.return_soup(html)
+    today = datetime.datetime.today()
+    
+    races_obj = soup.find_all("script", attrs={"type":"application/ld+json"})
+    next_race_dates = []
+    for race in races_obj:
+        race_calendar = json.loads(race.text)
+        next_race_dates.append(race_calendar.get("startDate"))
+        start_time = race_calendar.get("startDate")
+        end_time = race_calendar.get("endDate")
+    
+    print("start time")
+    print(start_time)
+    print("end time")
+    print(end_time)
 
-# GERA UM GRAFICO PARA PODER SER POSTADO NO TWITTER CONTENDO OS RESULTADOS DO PILOTO
-def generate_graph():
+def crawl_race_results(html):
     ...
 
 """
@@ -224,9 +219,16 @@ def main():
     # PROCURA POR PILOTO/ EXEMPLO MAX VERSTAPPEN
     search_pilot(db, "Max Verstappen")
 """
+
 def main():
     print(TEAMS_URL)
-    get_all_teams(TEAMS_URL)
+    crawl_all_teams(TEAMS_URL)
+
+"""
+SCHEDULE_URL = "https://www.formula1.com/en/racing/2023.html"
+def main():
+    get_next_races(SCHEDULE_URL)
+"""
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":
