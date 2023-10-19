@@ -87,7 +87,7 @@ def crawl_all_pilots(html) -> list:
     
     all_pilots = []
     for pilot in list_of_pilots:
-        pilot_obj = json.loads(pilot["data-tracking"])
+        pilot_obj = json.loads(pilot["tdata-tracking"])
         pilot_name = pilot_obj.get("path")
         pilot_codename = str(pilot["href"]).split("/drivers/")[1].split(".html")[0]
         pilot_callsign = str(pilot_name.split(' ')[0][:3]).upper() + str(pilot_name.split(' ')[1][:3]).upper() + str('01')
@@ -195,25 +195,25 @@ def convert_utc_timezone(time, gmt_offset):
     #     br_time = int(time) - (int(gmt_offset) + int(BR_TIMEZONE))
     return br_time % 24
 
-def funcao(race_details, race_event:str):
+def create_event_object(race_details, race_event:str):
 
     # print(f"race event = {race_event}")
     # print(race)
     schedule = race_details.find("div", attrs={"class":"f1-race-hub--timetable-listings"})    
     race = schedule.find("div", attrs={"class": f"row js-{race_event}"})
     if race:
-        # event = race.attrs['class'][1].split('js-')[1].capitalize()
+        event = race.attrs['class'][1].split('js-')[1].capitalize()
         start_day, start_time = date_parser(race["data-start-time"])
         gmt_offset = race["data-gmt-offset"]
         br_start_time = convert_utc_timezone(start_time.split(":")[0], gmt_offset.split(":")[0])
         minutes = start_time.split(":")[1]
 
         date_object = {
-            # "Event":str(event),
+            "Event":str(event),
             "Day":str(start_day),
             "Hour": f"{br_start_time}:{minutes}"
         }
-        # print(date_object)
+        print(date_object)
         return date_object
     else:
         print(f'No race found!')
@@ -276,12 +276,12 @@ def crawl_next_race_dates(html):
             print('1st Caaase')
             for race_event in ['race','qualifying','practice-3', 'practice-2', 'practice-1']:
                 print(f"race event = {race_event}")
-                funcao(race_details, race_event)
+                create_event_object(race_details, race_event)
         else:
             print('2nd Case')
             for race_event in ['race', 'sprint', 'sprint-shootout', 'qualifying', 'practice-1']:
                 print(f"race event = {race_event}")
-                funcao(race_details, race_event)
+                create_event_object(race_details, race_event)
     
     # start_time_br = start_time +  
 
