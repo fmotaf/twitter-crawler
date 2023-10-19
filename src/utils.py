@@ -6,7 +6,7 @@ from bs4.element import Comment
 import pandas as pd
 import requests
 
-def return_soup(html) -> BeautifulSoup:
+def give_me_soup(html) -> BeautifulSoup:
     """
         Parametros:
             html: URL que possui os dados a serem raspados

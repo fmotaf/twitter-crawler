@@ -6,7 +6,8 @@ import datetime
 import dbase
 from dbase import Database
 import utils
-
+from bs4 import BeautifulSoup
+import re
 
 # ESSA PARTE SERA USADA APENAS PARA INTERAÇÃO COM TWITTER PORTANTO SERÁ DEIXADA DE LADO POR ENQUANTO
 """
@@ -38,7 +39,8 @@ DRIVERS_URL = "https://www.formula1.com/en/drivers"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
 
-db = Database.connect_db()
+# NO NEED TO CONNECT TO DB RIGHT NOW!!!
+# db = Database().connect_db()
 
 def insert_pilot(db:dbase.Database, pilot_data) -> None:
     """
@@ -56,7 +58,6 @@ def insert_pilot(db:dbase.Database, pilot_data) -> None:
     print(pilot_id)
     db.insert_element(pilots_collection, pilot)
 
-
 def insert_team(db:dbase.Database, team_data) -> None:
     teams_collection = db.teams
     team = {
@@ -72,7 +73,7 @@ def search_pilot(db:dbase.Database, pilot_name) -> None:
     query = pilots_collection.find_one({"Name": str(pilot_name)})
     print(query)
 
-### FUNCOES RELACIONADAS AO CRAWLING DA URL_3
+### FUNCOES RELACIONADAS AO CRAWLING DA URL_FORMULA1
 def crawl_all_pilots(html) -> list:
     """
         Parametros:
@@ -81,8 +82,7 @@ def crawl_all_pilots(html) -> list:
         Retorna: 
             Lista contendo os pilotos
     """
-
-    soup = utils.return_soup(html)
+    soup = utils.give_me_soup(html)
     list_of_pilots = soup.find("div", attrs={"class": "container listing-items--wrapper driver during-season"}).find_all("a", attrs={"class":"listing-item--link"})
     
     all_pilots = []
@@ -103,8 +103,7 @@ def crawl_all_teams(html:str) -> list:
         Retorna: 
             Lista contendo as equipes
     """
-
-    soup = utils.return_soup(html)
+    soup = utils.give_me_soup(html)
     list_of_teams = soup.find("div", attrs={"class": "container listing team-listing"}).find_all("a", attrs={"class":"listing-link"})
     
     all_teams = []
@@ -126,8 +125,9 @@ def crawl_all_teams(html:str) -> list:
         print(all_teams)
 
     return all_teams
-        # all_teams.append(team)
-        # print(team_name)
+
+def insert_teams(html):
+    soup = utils.give_me_soup(html)
 
 # BAIXA IMAGEM DO PILOTO DE ACORDO COM SEU NOME
 def crawl_pilot_img(html, pilot_name):
@@ -139,8 +139,7 @@ def crawl_pilot_img(html, pilot_name):
         Retorna: 
             Lista contendo as equipes
     """
-
-    soup = utils.return_soup(html)
+    soup = utils.give_me_soup(html)
     images = soup.find_all("img", attrs={"class":IMG_CLASS})
     
     for image in images:
@@ -159,7 +158,7 @@ def crawl_pilot_img(html, pilot_name):
 
 # PEGA OS RESULTADOS DO PILOTO NA TEMPORADA 2023
 def crawl_pilot_results(html):
-    soup = utils.return_soup(html)
+    soup = utils.give_me_soup(html)
     table = soup.find("table", class_="resultsarchive-table")
 
     first_row = table.findChild("thead")
@@ -170,66 +169,175 @@ def crawl_pilot_results(html):
     excel_data = []
     for row in table.find_all("tr")[1:]:
         line = list(row.get_text().strip().split('\n'))
-        # print(line)
         for _ in line:
             if _ == "":
                 line.remove(_)
-        # print(line)
         excel_data.append(line)
 
     print(f"excel data ={excel_data}")
     return (excel_labels, excel_data)
 
-# PEGA AS DATAS DE TODOS AS PROXIMAS PROVAS
-def crawl_next_races(html):
-    soup = utils.return_soup(html)
-    today = datetime.datetime.today()
-    
+def date_parser(date:str):
+
+    # print(date.split('T'))
+    date_ = date.split('T')[0]
+    time = date.split('T')[1]
+
+    return (date_, time)
+
+CALENDAR = "https://www.formula1.com/en/racing/2023.html"
+BR_TIMEZONE = -3
+def convert_utc_timezone(time, gmt_offset):
+
+    # if int(gmt_offset) < BR_TIMEZONE:
+    br_time = int(time) - (int(gmt_offset) - int(BR_TIMEZONE)) 
+    # else:
+    #     br_time = int(time) - (int(gmt_offset) + int(BR_TIMEZONE))
+    return br_time % 24
+
+def funcao(race_details, race_event:str):
+
+    # print(f"race event = {race_event}")
+    # print(race)
+    schedule = race_details.find("div", attrs={"class":"f1-race-hub--timetable-listings"})    
+    race = schedule.find("div", attrs={"class": f"row js-{race_event}"})
+    if race:
+        # event = race.attrs['class'][1].split('js-')[1].capitalize()
+        start_day, start_time = date_parser(race["data-start-time"])
+        gmt_offset = race["data-gmt-offset"]
+        br_start_time = convert_utc_timezone(start_time.split(":")[0], gmt_offset.split(":")[0])
+        minutes = start_time.split(":")[1]
+
+        date_object = {
+            # "Event":str(event),
+            "Day":str(start_day),
+            "Hour": f"{br_start_time}:{minutes}"
+        }
+        # print(date_object)
+        return date_object
+    else:
+        print(f'No race found!')
+
+def start_with(div):
+    return str(div.get("class")).startswith("row js-")
+
+def crawl_next_race_dates(html):
+    """
+        Busca pelas datas das proximas corridas
+        Parametros:
+            html: URL que possui os dados a serem raspados
+        
+        Retorna: 
+            Lista contendo as equipes    
+    """
+    soup = utils.give_me_soup(html)
+    today = datetime.date.today()
+
     races_obj = soup.find_all("script", attrs={"type":"application/ld+json"})
+    # print(races_obj)
+
     next_race_dates = []
     for race in races_obj:
+        race_info = json.loads(race.text)
+        next_race_dates.append(race_info)
+
+    for race in next_race_dates:
+        url_ = race.get("@id")
+        print(url_)
+        race_details = utils.give_me_soup(url_)
+        # race_details = BeautifulSoup(requests.get(url_).content, "html.parser")
+
+        # divs_with_prefix = race_details.select('div[class^="row js-"]')
+        all_divs = race_details.find_all("div")
+        div_classes = []
+        for div in all_divs:
+            if div.get('class') is not None:
+                div_classes.append(div.get('class'))
+        # divs_with_prefix = [div for div in div_classes if 'js-' in div]
+        divs_with_prefix = []
+        for e in div_classes:
+            # print(f'e={e}')
+            for i in range(len(e)):
+                if e[i].startswith('js-'):
+                    divs_with_prefix.append(e[i])
+
+
+        print(divs_with_prefix)
+
+
+        # print(divs_with_prefix)
+        # for div in divs_with_prefix:
+        #     print(div)
+            # print(10*'-')
+            
+        # print(race_details.find_all("div", attrs={"class": "row js-"}))
+        
+        if 'js-practice-3' in divs_with_prefix:
+            print('1st Caaase')
+            for race_event in ['race','qualifying','practice-3', 'practice-2', 'practice-1']:
+                print(f"race event = {race_event}")
+                funcao(race_details, race_event)
+        else:
+            print('2nd Case')
+            for race_event in ['race', 'sprint', 'sprint-shootout', 'qualifying', 'practice-1']:
+                print(f"race event = {race_event}")
+                funcao(race_details, race_event)
+    
+    # start_time_br = start_time +  
+
+    # for s in schedule:
+    #     print(s)
+
+    # print(race_details.find("div", attrs={"class":"row js-race"}))
+    #find("div", attrs={"class":"f1-timetable--row f1-bg--white"}).find_parent().find_parent())
+
+    ...
+    
+    """
+    for race in races_obj:
         race_calendar = json.loads(race.text)
-        next_race_dates.append(race_calendar.get("startDate"))
+        print(race_calendar)
+    
         start_time = race_calendar.get("startDate")
         end_time = race_calendar.get("endDate")
-    
-    print("start time")
-    print(start_time)
-    print("end time")
-    print(end_time)
 
-def crawl_race_results(html):
-    ...
+        fp_session_date = datetime.date(date_parser(start_time)[0])
+        fp_session_time = date_parser(start_time)[1]
+        start_time = (fp_session_date, fp_session_time)
 
-"""
-def main():
-    list_of_pilots = get_all_pilots(DRIVERS_URL+".html")
-
-    # for pilot in list_of_pilots:
-        # print(pilot)
-        # print(DRIVERS_STANDING_2023+str(pilot[2])+".html")
-        # pilot_result = get_pilot_results(DRIVERS_STANDING_2023+"/"+str(pilot[2])+".html")
-        # print(pilot_result)
+        next_race_date = datetime.date(date_parser(end_time)[0])
+        next_race_time = date_parser(end_time)[1]
+        end_time = (next_race_date, next_race_time)
         
-    # INSERE DADOS DO PILOTO NO BANCO
-    db = connect_db()
+        race_date = (start_time, end_time)
+        next_race_dates.append(race_date)
+    """        
         
-    # insert_pilot(db, pilot)
+    # print("free practice time:")
+    # print(fp_session_date, fp_session_time)
 
-    # PROCURA POR PILOTO/ EXEMPLO MAX VERSTAPPEN
-    search_pilot(db, "Max Verstappen")
-"""
+    # print("race time:")
+    # print(next_race_date, next_race_time)
+    """
+    print(next_race_dates)
+    return next_race_dates
+    """
 
 def main():
-    print(TEAMS_URL)
-    crawl_all_teams(TEAMS_URL)
-
-"""
-SCHEDULE_URL = "https://www.formula1.com/en/racing/2023.html"
-def main():
-    get_next_races(SCHEDULE_URL)
-"""
+    crawl_next_race_dates(CALENDAR)
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":
     main()
+
+"""
+TEAMS_URL_2 = "https://www.formula1.com/en/results.html/2023/team.html"
+def crawl_teams(html):
+    soup = utils.give_me_soup(html)
+    teams_nicknames = soup.find("select", attrs={"name":"teamKey"})
+    
+    for team in teams_nicknames.find_all("option"):
+        
+        if team.get("value") != "all":
+            print(team.get("value"))
+"""
