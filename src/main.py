@@ -8,39 +8,41 @@ from dbase import Database
 import utils
 from bs4 import BeautifulSoup
 import re
+import schedule
 
 # ESSA PARTE SERA USADA APENAS PARA INTERAÇÃO COM TWITTER PORTANTO SERÁ DEIXADA DE LADO POR ENQUANTO
-"""
-API_KEY = config("API_KEY")
-API_SECRET_KEY = config("API_SECRET_KEY")
-ACCESS_TOKEN = config("ACCESS_TOKEN")
-ACCESS_TOKEN_SECRET = config("ACCESS_TOKEN_SECRET")
-BEARER_TOKEN = config("BEARER_TOKEN")
-CLIENT_ID = config("CLIENT_ID")
-CLIENT_SECRET = config("CLIENT_SECRET")
+bearer_token = config("BEARER_TOKEN")
+consumer_key = config("API_KEY")
+consumer_secret = config("API_SECRET_KEY")
+access_token = config("ACCESS_TOKEN")
+access_token_secret = config("ACCESS_TOKEN_SECRET")
 
-auth = tweepy.OAuthHandler(API_KEY, API_SECRET_KEY)
-auth.set_access_token(ACCESS_TOKEN, ACCESS_TOKEN_SECRET)
+# print(consumer_key, type(consumer_key))
+# print(consumer_secret, type(consumer_secret))
+print(access_token, type(access_token))
+print(access_token_secret, type(access_token_secret))
 
-# api = tweepy.API(auth)
-api = tweepy.Client(
-    consumer_key=API_KEY,
-    consumer_secret=API_SECRET_KEY,
-    access_token=ACCESS_TOKEN,
-    access_token_secret=ACCESS_TOKEN_SECRET,
-    bearer_token=BEARER_TOKEN
+client = tweepy.Client(
+    consumer_key=consumer_key,
+    consumer_secret=consumer_secret,
+    access_token=access_token,
+    access_token_secret=access_token_secret
 )
-"""
 
-URL_3 = "https://www.formula1.com/"
+auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
+auth.set_access_token(access_token, access_token_secret)
+# api = tweepy.API(auth)
+
+
+FORMULA1_URL = "https://www.formula1.com/"
 URL_TO_WATCH = "https://www.band.uol.com.br/esportes/automobilismo/formula-1/ao-vivo"
 TEAMS_URL = "https://www.formula1.com/en/teams.html"
 DRIVERS_URL = "https://www.formula1.com/en/drivers"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
-
-# NO NEED TO CONNECT TO DB RIGHT NOW!!!
-# db = Database().connect_db()
+CALENDAR = "https://www.formula1.com/en/racing/2023.html"
+BR_TIMEZONE = -3
+LINKS_TO_WATCH = ""
 
 def insert_pilot(db:dbase.Database, pilot_data) -> None:
     """
@@ -181,15 +183,11 @@ def crawl_pilot_results(html):
     return (excel_labels, excel_data)
 
 def date_parser(date:str):
-
-    # print(date.split('T'))
     date_ = date.split('T')[0]
     time = date.split('T')[1]
 
     return (date_, time)
 
-CALENDAR = "https://www.formula1.com/en/racing/2023.html"
-BR_TIMEZONE = -3
 def convert_utc_timezone(time, gmt_offset):
     br_time = int(time) - (int(gmt_offset) - int(BR_TIMEZONE)) 
     return br_time % 24
@@ -228,11 +226,9 @@ def crawl_next_race_dates(html):
             Lista contendo as equipes    
     """
     soup = utils.give_me_soup(html)
-    today = datetime.date.today()
     db = Database()
 
     races_obj = soup.find_all("script", attrs={"type":"application/ld+json"})
-    # print(races_obj)
 
     next_race_dates = []
     for race in races_obj:
@@ -288,63 +284,53 @@ def crawl_next_race_dates(html):
                         print(e)     
                 else:
                     print("evento ja inserido em banco")
-            
-    # start_time_br = start_time +  
 
-    # for s in schedule:
-    #     print(s)
-
-    # print(race_details.find("div", attrs={"class":"row js-race"}))
-    #find("div", attrs={"class":"f1-timetable--row f1-bg--white"}).find_parent().find_parent())
-
+def message_content():
     ...
-    
-    """
-    for race in races_obj:
-        race_calendar = json.loads(race.text)
-        print(race_calendar)
-    
-        start_time = race_calendar.get("startDate")
-        end_time = race_calendar.get("endDate")
 
-        fp_session_date = datetime.date(date_parser(start_time)[0])
-        fp_session_time = date_parser(start_time)[1]
-        start_time = (fp_session_date, fp_session_time)
+def post_msg(bot:tweepy.Client):
+    db = Database()
+    today = datetime.datetime.today()
+    events = db.search_all_elements("events")
+    # print(events)
 
-        next_race_date = datetime.date(date_parser(end_time)[0])
-        next_race_time = date_parser(end_time)[1]
-        end_time = (next_race_date, next_race_time)
+    event = events[0]
+    # for event in events:
+    print(event)
+        # print(event["Day"].replace('-',','))
+    year = int(event["Day"].split('-')[0])
+    month = int(event["Day"].split('-')[1])
+    day = int(event["Day"].split('-')[2])
+    new_datetime = datetime.datetime(year, month, day)
+    delta = new_datetime - today
+    print(delta.days)
         
-        race_date = (start_time, end_time)
-        next_race_dates.append(race_date)
-    """        
-        
-    # print("free practice time:")
-    # print(fp_session_date, fp_session_time)
+    if delta.days < 0:    
+        try:
+            msg = f"A corrida {event} aconteceu há {delta.days} dias!"
+            print(msg)
+            bot.create_tweet(text=msg)
+        except tweepy.TwitterServerError as e:
+                print(f'Erro: {e}')
+    else:
+        try:
+            msg = f"A corrida {event} vai acontecer em {delta.days} dias!\nConfira aqui os links para assistir:\n{LINKS_TO_WATCH}"
+            print(msg)
+            bot.create_tweet(text=msg)
+        except tweepy.TwitterServerError as e:
+            print(f'Erro: {e}')
 
-    # print("race time:")
-    # print(next_race_date, next_race_time)
-    """
-    print(next_race_dates)
-    return next_race_dates
-    """
+
+# def job():
+#     schedule.every(1).minutes.do(job)    
+#     # api.create_tweet(text)
+#     ...
+    
 
 def main():
-    crawl_next_race_dates(CALENDAR)
-
+    # crawl_next_race_dates(CALENDAR)
+    post_msg(bot=client)
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":
     main()
-
-"""
-TEAMS_URL_2 = "https://www.formula1.com/en/results.html/2023/team.html"
-def crawl_teams(html):
-    soup = utils.give_me_soup(html)
-    teams_nicknames = soup.find("select", attrs={"name":"teamKey"})
-    
-    for team in teams_nicknames.find_all("option"):
-        
-        if team.get("value") != "all":
-            print(team.get("value"))
-"""

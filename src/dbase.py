@@ -1,6 +1,8 @@
 from decouple import config
 from pymongo import MongoClient
 from pymongo import database
+from bson import json_util
+import json
 
 class Database():
     def __init__(self) -> None:
@@ -36,6 +38,16 @@ class Database():
         query = self.db[collection].find_one({"Name": str(element)})
         if query:
             print(query)
+            return json.loads(query)
         else:
             print("Nao foi encontrado nenhum elemento que satisfaz sua busca!")
+            return None
+        
+    def search_all_elements(self, collection:str) -> str:
+        query = self.db[collection].find()
+        if query:
+            return [document for document in query]
+            # serialized_query = [document for document in query]
+            # return json_util.dumps(serialized_query)
+        else:
             return None
