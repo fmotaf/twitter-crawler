@@ -56,7 +56,10 @@ def insert_pilot(db:dbase.Database, pilot_data) -> None:
     }
     pilot_id = pilots_collection.insert_one(pilot).inserted_id
     print(pilot_id)
-    db.insert_element(pilots_collection, pilot)
+    try:
+        db.insert_element(pilots_collection, pilot)
+    except Exception as e:
+        print(e)
 
 def insert_team(db:dbase.Database, team_data) -> None:
     teams_collection = db.teams
@@ -188,17 +191,10 @@ def date_parser(date:str):
 CALENDAR = "https://www.formula1.com/en/racing/2023.html"
 BR_TIMEZONE = -3
 def convert_utc_timezone(time, gmt_offset):
-
-    # if int(gmt_offset) < BR_TIMEZONE:
     br_time = int(time) - (int(gmt_offset) - int(BR_TIMEZONE)) 
-    # else:
-    #     br_time = int(time) - (int(gmt_offset) + int(BR_TIMEZONE))
     return br_time % 24
 
-def create_event_object(race_details, race_event:str):
-
-    # print(f"race event = {race_event}")
-    # print(race)
+def create_event_object(racetrack:str, race_details, race_event:str):
     schedule = race_details.find("div", attrs={"class":"f1-race-hub--timetable-listings"})    
     race = schedule.find("div", attrs={"class": f"row js-{race_event}"})
     if race:
@@ -209,6 +205,7 @@ def create_event_object(race_details, race_event:str):
         minutes = start_time.split(":")[1]
 
         date_object = {
+            "Racetrack": racetrack,
             "Event":str(event),
             "Day":str(start_day),
             "Hour": f"{br_start_time}:{minutes}"
@@ -232,6 +229,7 @@ def crawl_next_race_dates(html):
     """
     soup = utils.give_me_soup(html)
     today = datetime.date.today()
+    db = Database()
 
     races_obj = soup.find_all("script", attrs={"type":"application/ld+json"})
     # print(races_obj)
@@ -242,8 +240,10 @@ def crawl_next_race_dates(html):
         next_race_dates.append(race_info)
 
     for race in next_race_dates:
+        racetrack = race.get("name")
         url_ = race.get("@id")
         print(url_)
+        print(racetrack)
         race_details = utils.give_me_soup(url_)
         # race_details = BeautifulSoup(requests.get(url_).content, "html.parser")
 
@@ -261,28 +261,34 @@ def crawl_next_race_dates(html):
                 if e[i].startswith('js-'):
                     divs_with_prefix.append(e[i])
 
-
         print(divs_with_prefix)
 
-
-        # print(divs_with_prefix)
-        # for div in divs_with_prefix:
-        #     print(div)
-            # print(10*'-')
-            
-        # print(race_details.find_all("div", attrs={"class": "row js-"}))
-        
         if 'js-practice-3' in divs_with_prefix:
             print('1st Caaase')
             for race_event in ['race','qualifying','practice-3', 'practice-2', 'practice-1']:
                 print(f"race event = {race_event}")
-                create_event_object(race_details, race_event)
+                new_event = create_event_object(racetrack, race_details, race_event)
+                if db.search_element("events", new_event.get("Racetrack")) == None:
+                    try:
+                        db.insert_element("events", new_event)
+                    except Exception as e:
+                        print(e)       
+                else:
+                    print("evento ja inserido em banco")
         else:
             print('2nd Case')
             for race_event in ['race', 'sprint', 'sprint-shootout', 'qualifying', 'practice-1']:
                 print(f"race event = {race_event}")
-                create_event_object(race_details, race_event)
-    
+                new_event = create_event_object(racetrack, race_details, race_event)
+                print(f"RACETRACK = {new_event.get('Racetrack')}")
+                if db.search_element("events", new_event.get("Racetrack")) == None:
+                    try:
+                        db.insert_element("events", new_event)
+                    except Exception as e:
+                        print(e)     
+                else:
+                    print("evento ja inserido em banco")
+            
     # start_time_br = start_time +  
 
     # for s in schedule:
@@ -325,6 +331,7 @@ def crawl_next_race_dates(html):
 
 def main():
     crawl_next_race_dates(CALENDAR)
+
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":
