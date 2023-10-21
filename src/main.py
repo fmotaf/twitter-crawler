@@ -19,8 +19,8 @@ access_token_secret = config("ACCESS_TOKEN_SECRET")
 
 # print(consumer_key, type(consumer_key))
 # print(consumer_secret, type(consumer_secret))
-print(access_token, type(access_token))
-print(access_token_secret, type(access_token_secret))
+# print(access_token, type(access_token))
+# print(access_token_secret, type(access_token_secret))
 
 client = tweepy.Client(
     consumer_key=consumer_key,
@@ -43,6 +43,7 @@ DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
 CALENDAR = "https://www.formula1.com/en/racing/2023.html"
 BR_TIMEZONE = -3
 LINKS_TO_WATCH = ""
+CLASS_BUTTON_RESULT = "btn btn--inverted btn--timetable d-block d-md-inline-block"
 
 def insert_pilot(db:dbase.Database, pilot_data) -> None:
     """
@@ -161,11 +162,18 @@ def crawl_pilot_img(html, pilot_name):
         else:
             print("Nenhuma imagem do piloto foi encontrada!")
 
-# PEGA OS RESULTADOS DO PILOTO NA TEMPORADA 2023
-def crawl_pilot_results(html):
+def crawl_pilot_results(html) -> tuple:
+    """
+        Pega os resultados dos pilotos na temporada 2023
+        Parametro:
+            html: URL que contem os dados do pilot
+        Retorna: 
+            excel_labels: Indices que irão preencher as colunas do excel gerado
+            excel_data: Dados dos pilotos
+    """
     soup = utils.give_me_soup(html)
     table = soup.find("table", class_="resultsarchive-table")
-
+    
     first_row = table.findChild("thead")
     print(first_row.get_text().strip().split('\n'))
 
@@ -193,21 +201,48 @@ def convert_utc_timezone(time, gmt_offset):
     return br_time % 24
 
 def create_event_object(racetrack:str, race_details, race_event:str):
+    """
+        Cria objeto para representar os dados da corrida
+        Parametros:
+            racetrack: String contendo o nome completo da corrida/evento
+            race_details: Detalhes da corrida
+            race_event: codenome da corrida, será útil para usar na URL
+        Retorna: 
+            Lista contendo as equipes    
+    """
     schedule = race_details.find("div", attrs={"class":"f1-race-hub--timetable-listings"})    
     race = schedule.find("div", attrs={"class": f"row js-{race_event}"})
+    print("-----------------------------------------------------------")
+    print(race_event)
     if race:
         event = race.attrs['class'][1].split('js-')[1].capitalize()
         start_day, start_time = date_parser(race["data-start-time"])
         gmt_offset = race["data-gmt-offset"]
         br_start_time = convert_utc_timezone(start_time.split(":")[0], gmt_offset.split(":")[0])
         minutes = start_time.split(":")[1]
-
+        links_if_already_happen = race_details.find_all("a", attrs={"class":CLASS_BUTTON_RESULT})
+        print(links_if_already_happen)
         date_object = {
             "Racetrack": racetrack,
             "Event":str(event),
             "Day":str(start_day),
-            "Hour": f"{br_start_time}:{minutes}"
+            "Hour": f"{br_start_time}:{minutes}",
+            "URL-Result": None
         }
+        if links_if_already_happen:
+            for link in links_if_already_happen:
+                print(link['href'])
+                print(link['href'].endswith(race_event+".html"))
+                if link['href'].endswith(race_event+".html"):
+                    print('TRuuuue')
+                    date_object = {
+                        "Racetrack": racetrack,
+                        "Event":str(event),
+                        "Day":str(start_day),
+                        "Hour": f"{br_start_time}:{minutes}",
+                        "URL-Result": link['href']
+                    }
+        print("date_object")
         print(date_object)
         return date_object
     else:
@@ -216,33 +251,43 @@ def create_event_object(racetrack:str, race_details, race_event:str):
 def start_with(div):
     return str(div.get("class")).startswith("row js-")
 
-def crawl_next_race_dates(html):
+def crawl_race_dates(html):
     """
         Busca pelas datas das proximas corridas
         Parametros:
             html: URL que possui os dados a serem raspados
-        
         Retorna: 
             Lista contendo as equipes    
     """
-    soup = utils.give_me_soup(html)
-    db = Database()
+    count = 0
 
+    soup = utils.give_me_soup(html)
+    print(html)
+    # if_event_results = soup.find_all("a")
+
+    # for i in if_event_results:
+    #     print(i)
+    db = Database()
     races_obj = soup.find_all("script", attrs={"type":"application/ld+json"})
 
     next_race_dates = []
     for race in races_obj:
         race_info = json.loads(race.text)
+        # print(race_info)
         next_race_dates.append(race_info)
 
     for race in next_race_dates:
+        # print(race)
         racetrack = race.get("name")
         url_ = race.get("@id")
+        print("url")
         print(url_)
-        print(racetrack)
+        # print(url_)
+        # print(racetrack)
         race_details = utils.give_me_soup(url_)
+        
         # race_details = BeautifulSoup(requests.get(url_).content, "html.parser")
-
+        
         # divs_with_prefix = race_details.select('div[class^="row js-"]')
         all_divs = race_details.find_all("div")
         div_classes = []
@@ -256,17 +301,16 @@ def crawl_next_race_dates(html):
             for i in range(len(e)):
                 if e[i].startswith('js-'):
                     divs_with_prefix.append(e[i])
-
         print(divs_with_prefix)
-
         if 'js-practice-3' in divs_with_prefix:
             print('1st Caaase')
             for race_event in ['race','qualifying','practice-3', 'practice-2', 'practice-1']:
                 print(f"race event = {race_event}")
                 new_event = create_event_object(racetrack, race_details, race_event)
-                if db.search_element("events", new_event.get("Racetrack")) == None:
+                count = count+1
+                if db.search_element("races", {"Day":new_event.get("Day"), "Event":new_event.get("Event")}) is None:
                     try:
-                        db.insert_element("events", new_event)
+                        db.insert_element("races", new_event)
                     except Exception as e:
                         print(e)       
                 else:
@@ -276,10 +320,11 @@ def crawl_next_race_dates(html):
             for race_event in ['race', 'sprint', 'sprint-shootout', 'qualifying', 'practice-1']:
                 print(f"race event = {race_event}")
                 new_event = create_event_object(racetrack, race_details, race_event)
-                print(f"RACETRACK = {new_event.get('Racetrack')}")
-                if db.search_element("events", new_event.get("Racetrack")) == None:
+                count = count+1
+                # print(f"RACETRACK = {new_event.get('Racetrack')}")
+                if db.search_element("races", {"Day":new_event.get("Day"),"Event":new_event.get("Event")}) is None:
                     try:
-                        db.insert_element("events", new_event)
+                        db.insert_element("races", new_event)
                     except Exception as e:
                         print(e)     
                 else:
@@ -291,11 +336,11 @@ def message_content():
 def post_msg(bot:tweepy.Client):
     db = Database()
     today = datetime.datetime.today()
-    events = db.search_all_elements("events")
-    # print(events)
+    races = db.search_all_elements("races")
+    # print(races)
 
-    event = events[0]
-    # for event in events:
+    event = races[0]
+    # for event in races:
     print(event)
         # print(event["Day"].replace('-',','))
     year = int(event["Day"].split('-')[0])
@@ -307,14 +352,14 @@ def post_msg(bot:tweepy.Client):
         
     if delta.days < 0:    
         try:
-            msg = f"A corrida {event} aconteceu há {delta.days} dias!"
+            msg = f"A corrida {event['Racetrack']} aconteceu há {delta.days} dias!\nConfira aqui os resultados:\n"
             print(msg)
             bot.create_tweet(text=msg)
         except tweepy.TwitterServerError as e:
                 print(f'Erro: {e}')
     else:
         try:
-            msg = f"A corrida {event} vai acontecer em {delta.days} dias!\nConfira aqui os links para assistir:\n{LINKS_TO_WATCH}"
+            msg = f"A corrida {event['Racetrack']} vai acontecer em {delta.days} dias!\nConfira aqui os links para assistir:\n{LINKS_TO_WATCH}"
             print(msg)
             bot.create_tweet(text=msg)
         except tweepy.TwitterServerError as e:
@@ -328,8 +373,8 @@ def post_msg(bot:tweepy.Client):
     
 
 def main():
-    # crawl_next_race_dates(CALENDAR)
-    post_msg(bot=client)
+    crawl_race_dates(CALENDAR)
+    # post_msg(bot=client)
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":

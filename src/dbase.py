@@ -34,13 +34,14 @@ class Database():
         print(f"elemento {element_id} inserido na coleção {collection}")
 
     # BUSCA POR ELEMENTO NO BANCO
-    def search_element(self, collection:str , element) -> None:
-        query = self.db[collection].find_one({"Name": str(element)})
+    def search_element(self, collection:str , dict_):
+        query = self.db[collection].find_one(dict_)
         if query:
             print(query)
-            return json.loads(query)
+            print(type(query))
+            return query
         else:
-            print("Nao foi encontrado nenhum elemento que satisfaz sua busca!")
+            # print("Nao foi encontrado nenhum elemento que satisfaz sua busca!")
             return None
         
     def search_all_elements(self, collection:str) -> str:
