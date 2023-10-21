@@ -7,8 +7,10 @@ import dbase
 from dbase import Database
 import utils
 from bs4 import BeautifulSoup
-
-bearer_token = config("BEARER_TOKEN")
+import time
+import logging
+ 
+# bearer_token = config("BEARER_TOKEN")
 consumer_key = config("API_KEY")
 consumer_secret = config("API_SECRET_KEY")
 access_token = config("ACCESS_TOKEN")
@@ -36,6 +38,8 @@ CALENDAR = "https://www.formula1.com/en/racing/2023.html"
 LINKS_TO_WATCH = "https://www.band.uol.com.br/programacao"
 CLASS_BUTTON_RESULT = "btn btn--inverted btn--timetable d-block d-md-inline-block"
 BR_TIMEZONE = -3
+
+logging.basicConfig(level=logging.DEBUG)
 
 def insert_pilot(db:dbase.Database, pilot_data) -> None:
     """
@@ -331,30 +335,49 @@ def post_msg(bot:tweepy.Client):
     races = db.search_all_elements("races")
     # print(races)
 
-    for race in races:
-        # for event in races:
-        print(race)
-            # print(event["Day"].replace('-',','))
-        year = int(race["Day"].split('-')[0])
-        month = int(race["Day"].split('-')[1])
-        day = int(race["Day"].split('-')[2])
-        new_datetime = datetime.datetime(year, month, day)
-        delta = new_datetime - today
-        print(delta.days)
-        if delta.days < 0:    
-            try:
-                msg = f"A corrida {race['Racetrack']} aconteceu há {abs(delta.days)} dia(s)! \nConfira aqui os resultados:\n{race['URL-Result']}"
-                print(msg)
-                bot.create_tweet(text=msg)
-            except tweepy.TwitterServerError as e:
-                    print(f'Erro: {e}')
-        else:
-            try:
-                msg = f"A corrida {race['Racetrack']} vai acontecer em {abs(delta.days)} dia(s)!\nConfira aqui os links para assistir:\n{LINKS_TO_WATCH}"
-                print(msg)
-                bot.create_tweet(text=msg)
-            except tweepy.TwitterServerError as e:
-                print(f'Erro: {e}')
+    # for race in races:
+    race = races[0]
+    # for event in races:
+    print(race)
+        # print(event["Day"].replace('-',','))
+    year = int(race["Day"].split('-')[0])
+    month = int(race["Day"].split('-')[1])
+    day = int(race["Day"].split('-')[2])
+    hour = int(race["Hour"].split(':')[0])
+    minute = int(race["Hour"].split(':')[1])
+    new_datetime = datetime.datetime(year, month, day, hour, minute)
+    delta = new_datetime - today
+    days_diff = int(delta.total_seconds())//86400
+    hours_diff = int
+    print(delta.days)
+    print(int(delta.total_seconds())//86400)
+    print(delta.seconds)
+    
+    if delta.days < 0:    
+        try:
+            msg = f"A corrida {race['Racetrack']} aconteceu há {abs(delta.days)} dia(s)! \nConfira aqui os resultados:\n{race['URL-Result']}"
+            print(msg)
+            bot.create_tweet(text=msg)
+        except tweepy.TooManyRequests as e:
+            print(f'Erro: {e.response}')
+            time.sleep(901)
+    elif delta.days >= 1:
+        try:
+            msg = f"A corrida {race['Racetrack']} vai acontecer em {abs(delta.days)} dia(s)!\nAssista aqui:\n{LINKS_TO_WATCH}"
+            print(msg)
+            bot.create_tweet(text=msg)
+        except tweepy.TooManyRequests as e:
+            print(f'Erro: {e.response}')
+            time.sleep(901)
+    else:
+        try:
+            hours_diff = int(delta.total_seconds())//3600
+            msg = f"A corrida {race['Racetrack']} vai acontecer em {abs(hours_diff)} horas!\nAssista aqui:\n{LINKS_TO_WATCH}"
+            print(msg)
+            bot.create_tweet(text=msg)
+        except tweepy.TooManyRequests as e:
+            print(f'Erro: {e.response}')
+            time.sleep(901)
 
 
 # def job():
