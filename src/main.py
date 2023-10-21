@@ -7,31 +7,23 @@ import dbase
 from dbase import Database
 import utils
 from bs4 import BeautifulSoup
-import re
-import schedule
 
-# ESSA PARTE SERA USADA APENAS PARA INTERAÇÃO COM TWITTER PORTANTO SERÁ DEIXADA DE LADO POR ENQUANTO
 bearer_token = config("BEARER_TOKEN")
 consumer_key = config("API_KEY")
 consumer_secret = config("API_SECRET_KEY")
 access_token = config("ACCESS_TOKEN")
 access_token_secret = config("ACCESS_TOKEN_SECRET")
 
-# print(consumer_key, type(consumer_key))
-# print(consumer_secret, type(consumer_secret))
-# print(access_token, type(access_token))
-# print(access_token_secret, type(access_token_secret))
-
 client = tweepy.Client(
     consumer_key=consumer_key,
     consumer_secret=consumer_secret,
     access_token=access_token,
-    access_token_secret=access_token_secret
+    access_token_secret=access_token_secret,
+    wait_on_rate_limit=True
 )
 
 auth = tweepy.OAuthHandler(consumer_key, consumer_secret)
 auth.set_access_token(access_token, access_token_secret)
-# api = tweepy.API(auth)
 
 
 FORMULA1_URL = "https://www.formula1.com/"
@@ -41,9 +33,9 @@ DRIVERS_URL = "https://www.formula1.com/en/drivers"
 IMG_CLASS = "image fom-image fom-adaptiveimage-fallback"
 DRIVERS_STANDING_2023 = "https://www.formula1.com/en/results.html/2023/drivers"
 CALENDAR = "https://www.formula1.com/en/racing/2023.html"
-BR_TIMEZONE = -3
-LINKS_TO_WATCH = ""
+LINKS_TO_WATCH = "https://www.band.uol.com.br/programacao"
 CLASS_BUTTON_RESULT = "btn btn--inverted btn--timetable d-block d-md-inline-block"
+BR_TIMEZONE = -3
 
 def insert_pilot(db:dbase.Database, pilot_data) -> None:
     """
@@ -339,31 +331,30 @@ def post_msg(bot:tweepy.Client):
     races = db.search_all_elements("races")
     # print(races)
 
-    event = races[0]
-    # for event in races:
-    print(event)
-        # print(event["Day"].replace('-',','))
-    year = int(event["Day"].split('-')[0])
-    month = int(event["Day"].split('-')[1])
-    day = int(event["Day"].split('-')[2])
-    new_datetime = datetime.datetime(year, month, day)
-    delta = new_datetime - today
-    print(delta.days)
-        
-    if delta.days < 0:    
-        try:
-            msg = f"A corrida {event['Racetrack']} aconteceu há {delta.days} dias!\nConfira aqui os resultados:\n"
-            print(msg)
-            bot.create_tweet(text=msg)
-        except tweepy.TwitterServerError as e:
+    for race in races:
+        # for event in races:
+        print(race)
+            # print(event["Day"].replace('-',','))
+        year = int(race["Day"].split('-')[0])
+        month = int(race["Day"].split('-')[1])
+        day = int(race["Day"].split('-')[2])
+        new_datetime = datetime.datetime(year, month, day)
+        delta = new_datetime - today
+        print(delta.days)
+        if delta.days < 0:    
+            try:
+                msg = f"A corrida {race['Racetrack']} aconteceu há {abs(delta.days)} dia(s)! \nConfira aqui os resultados:\n{race['URL-Result']}"
+                print(msg)
+                bot.create_tweet(text=msg)
+            except tweepy.TwitterServerError as e:
+                    print(f'Erro: {e}')
+        else:
+            try:
+                msg = f"A corrida {race['Racetrack']} vai acontecer em {abs(delta.days)} dia(s)!\nConfira aqui os links para assistir:\n{LINKS_TO_WATCH}"
+                print(msg)
+                bot.create_tweet(text=msg)
+            except tweepy.TwitterServerError as e:
                 print(f'Erro: {e}')
-    else:
-        try:
-            msg = f"A corrida {event['Racetrack']} vai acontecer em {delta.days} dias!\nConfira aqui os links para assistir:\n{LINKS_TO_WATCH}"
-            print(msg)
-            bot.create_tweet(text=msg)
-        except tweepy.TwitterServerError as e:
-            print(f'Erro: {e}')
 
 
 # def job():
@@ -373,8 +364,10 @@ def post_msg(bot:tweepy.Client):
     
 
 def main():
-    crawl_race_dates(CALENDAR)
-    # post_msg(bot=client)
+    # crawl_race_dates(CALENDAR)
+    # schedule.every(1).days.at('09:00').do(post_msg(bot=client))
+    post_msg(bot=client)
+
 
 # APENAS COMO TESTE INSERE OS RESULTADOS EM UM EXCEL DE UM PILOTO
 if __name__ == "__main__":
