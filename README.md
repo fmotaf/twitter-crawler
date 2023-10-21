@@ -3,7 +3,8 @@
 ### Desenvolvido como atividade durante curso de WebCrawler
 
 ### Detalhes do projeto
-#### Em construção...
+Trata-se de um bot que notifica quando irão acontecer as próximas corridas da temporada de 2023 e também mostra os resultados das corridas que já ocorreram
+
 
 ### Como executar:
 
@@ -24,7 +25,7 @@
     cd twitter-crawler
     python -m venv venv 
     <venv>\Scripts\activate.bat (Windows)
-    source venv/bin/activate (Linux/OSX)
+    source venv/bin/activate (Linux/MacOS)
     pip install -r requirements.txt
 ```
 #### Finalmente para executar o crawler basta digitar:
